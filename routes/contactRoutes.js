@@ -1,4 +1,3 @@
-// routes/contactRoutes.js
 import express from "express";
 import Contact from "../models/Contact.js";
 
@@ -18,6 +17,12 @@ router.post("/", async (req, res) => {
       $or: [{ email }, { phoneNumber }],
     });
 
+    // Check if the same email and phone number already exist.
+    const alreadyExists = existingContacts.some(c => c.email === email && c.phoneNumber === phoneNumber);
+    if (alreadyExists) {
+      return res.status(200).json({ message: "Contact already exists with the same email and phone number." });
+    }
+
     // Find the primary contact from the existing contacts.
     let primaryContact = existingContacts.find(c => c.linkPrecedence === "primary");
     
@@ -35,20 +40,15 @@ router.post("/", async (req, res) => {
     // Find all secondary contacts linked to the primary contact.
     const secondaryContacts = await Contact.find({ linkedId: primaryContact._id });
 
-    // Check if the new email and phoneNumber combination is a new entry.
-    const isNewEntry = !existingContacts.some(c => c.email === email && c.phoneNumber === phoneNumber);
-
     // If it's a new entry, create a new secondary contact linked to the primary.
-    if (isNewEntry) {
-      const newSecondary = await Contact.create({
-        email,
-        phoneNumber,
-        linkedId: primaryContact._id,
-        linkPrecedence: "secondary",
-      });
-      // Add the new secondary contact to the secondaryContacts array.
-      secondaryContacts.push(newSecondary);
-    }
+    const newSecondary = await Contact.create({
+      email,
+      phoneNumber,
+      linkedId: primaryContact._id,
+      linkPrecedence: "secondary",
+    });
+    // Add the new secondary contact to the secondaryContacts array.
+    secondaryContacts.push(newSecondary);
 
     // Format and return the response with the primary and secondary contacts.
     res.json(formatResponse(primaryContact, secondaryContacts));
